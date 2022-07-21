@@ -1,0 +1,49 @@
+body {
+    text-align: center;
+  }
+  /*
+  a {
+    height: 142px;
+    margin-top: 5vh;
+    display: inline-block;
+    overflow: hidden;
+    text-decoration: none;
+  }
+  
+  span {
+    display: block;
+    padding: 30px 50px;
+    transition: all .4s ease;
+    color: #fff;
+    font-weight: bold;
+    background: #123035;
+    color: rgb(6, 111, 67);
+    font-size: 72px;
+  }
+  
+  span:first-child {
+    margin-top: -147px;
+    background: #507680;
+    color: #fff;
+  }
+  
+  a:hover span:first-child {
+    margin-top: 0;
+  } 
+  */ 
+
+  div.body {
+    overflow-y : auto;
+    scrollbar-face-color: rgb(34, 54, 20);
+    scrollbar-shadow-color: antiquewhite;
+    margin-top: 50px;
+    margin-bottom: 50px;
+  }
+
+  tr.header {
+    background: rgb(159, 142, 120);
+  }
+
+  tr.record {
+    background: darkgrey;
+  }

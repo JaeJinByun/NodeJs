@@ -145,7 +145,7 @@ const upload = multer({
         destination(req, file,done){
             //업로드할 디렉토리 결정
             //이 디렉토리는 미리 만들어져 있어야 함 
-            done(null, 'pulbic/img');
+            done(null, 'public/img');
         },
         filename(req, file, done) {
             //원본 파일의 확장자를 추출
@@ -163,6 +163,7 @@ app.use('/',express.static('public'));
 //파일을 다운로드 받을 수 있도록 설정
 var util = require('util');
 var mime = require('mime');
+const { json } = require('express');
 
 //데이터베이스 연결
 var connection = mysql.createConnection(options);
@@ -173,6 +174,17 @@ connection.connect(function(err){
         throw err;
     }
 })
+
+//sequelize 추출 
+const { sequelize, Item } = require("./models");
+sequelize.sync({force:false}).then( ()=> {
+    console.log("데이터 베이스 연결 성공");
+}).catch( (err) => {
+    console.log(err);
+})
+
+const {item} = require('./models');
+
 
 //시작요청 처리 '/' 으로 시작되는 주소로 들어올때 index.html 파일 전송
 app.get('/',(req,res, next) => {
@@ -254,7 +266,99 @@ app.get('/item/detail',(req,res) => {
         }
     })
 })
+app.get('/item/insert',(req,res)=> {
+    fs.readFile('public/insert.html',function(err,data){
+        res.end(data);
+    })
+})
 
+app.post('/item/insert',upload.single('pictureurl'),async(req,res) => {
+   
+        //파라미터 읽기
+        const itemname = req.body.itemname;
+        const price = req.body.price;
+        const description = req.body.description;;
+        
+        //파일 파라미터 값을 읽어오기
+       var pictureurl;
+       if(req.file) {
+        pictureurl = req.file.filename;
+       }else{
+        pictureurl = "default.jpg";
+       }
+
+       var itemid = 1;
+       try{
+            var x = await Item.max('itemid');
+            itemid = x + 1;
+       }catch(err) {
+        console.log(err);
+       }
+
+       //데이터 삽입
+       Item.create({
+            itemid:itemid,
+            itemname:itemname,
+            price:price,
+            description : description,
+            pictureurl : pictureurl
+       })
+    
+})
+app.post('/item/delete',(req,res) => {
+    //삭제를 위한 파라미터 읽기
+    const itemid = req.body.itemid;
+    connection.query('delete from goods where itemid = ?',[itemid],function(err,results,fields){
+        if(results.affetedRows >= 0){
+            res.send({'result' : true});
+        }else{
+            res.send({'result' : false});
+        }
+    })   
+})
+
+app.get('/item/update',(req,res) => {
+    fs.readFile('public/update.html', function(err,data){
+        res.end(data);
+    })
+})
+app.post('/item/update',upload.single('pictureurl'),(req,res)=>{
+    //파라미터 가져오기
+    const itemid = req.body.itemid;
+    const itemname = req.body.itemname;
+    const price = req.body.price;
+    const description = req.body.description;
+    const oldpictureurl = req.body.oldpictureurl;
+
+    // 새로운 파일을 선택하면 pictureurl을 변경하고 
+    // 새로운 파일을 선택하지 않으면 이전 이름 그대로 
+    var pictureurl;
+    if(req.file) {
+        pictureurl = req.file.fieldname;
+    }else {
+        pictureurl = oldpictureurl;
+    }
+
+    connection.query('update goods set itemname =? ,price = ? , description = ?, pictureurl = ? where itemid = ?',
+        [itemname,price,description,pictureurl,itemid],function(err,results,fields){
+            if(err) {
+                throw err;
+            }
+            if(results.affetedRows >= 0) {
+                res.json({"result" : true});
+            }else{
+                res.json({"result" : false});
+            }
+        })
+
+})
+app.get('/item/date', (req,res) => {
+    fs.readFile('./update.txt',function(err,data) {
+        res.json({'result' : data.toString()});
+    })
+})
+
+//에러가 발생했을 때 처리 
 app.use((err,req,res,next)=>{
     console.error(err);
     res.status(500).send(err.message);

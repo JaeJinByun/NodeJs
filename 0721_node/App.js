@@ -176,14 +176,15 @@ connection.connect(function(err){
 })
 
 //sequelize 추출 
-const { sequelize, Item } = require("./models");
+const { sequelize} = require("./models");
+
 sequelize.sync({force:false}).then( ()=> {
     console.log("데이터 베이스 연결 성공");
 }).catch( (err) => {
     console.log(err);
 })
 
-const {item} = require('./models');
+const {Item} = require('./models');
 
 
 //시작요청 처리 '/' 으로 시작되는 주소로 들어올때 index.html 파일 전송
@@ -191,27 +192,19 @@ app.get('/',(req,res, next) => {
     res.sendFile(path.join(__dirname,'index.html'));
 });
 //테이블의 전체 데이터 가져오는 처리
-app.get('/item/all',(req,res) =>{
-    //읽어온 데이터를 저장할 변수를 생성
-    var list;
-    //전체데이터 가져오는 SQL실행
-    connection.query('select * from goods order by itemid desc', function(err,results,fields) {
-        if(err) {
-            throw err;
-        }
-        list = results;
-
-        connection.query('select count(*) cnt from goods',
-            function(err,results,fields){
-                var cnt = results[0].cnt;
-                //json 출력
-                res.json({'count':cnt, 'list':list});
-        })
-    })
+app.get('/item/all',async(req,res,next) =>{
+    try{
+        var list = await Item.findAll();
+        var count = await Item.count();
+        res.json({'count':count,'list':list})
+    }catch(err){
+        console.log(err);
+        next(err)
+    }
 })
 
 //페이지 단위로 데이터 가져오기 
-app.get('/item/list', (req, res) => {
+app.get('/item/list', async(req, res, next) => {
     //GET 방식의 파라미터 읽어오기
     const pageno = req.query.pageno;
     const count = req.query.count;
@@ -229,42 +222,37 @@ app.get('/item/list', (req, res) => {
     if(pageno != undefined) {
         start = (parseInt(pageno) -1 ) * size;
     }
-    //데이터베이스 작업
-    var list;
-    connection.query('select * from goods order by itemid desc limit ?,?',[start,size], 
-        function(err,results,fields){
-            if(err) {
-                throw err;
-            }
-            
-            list = results;
-            connection.query('select count(*) cnt from goods',
-            function(err,results,fields){
-                if(err) {
-                    throw err;
-                }
-                var x = results[0].cnt;
-                //json 출력
-                res.json({'count':x, 'list':list});
-            })
+   
+    try {
+        var list = await Item.findAll({
+            offset:start,
+            limit:size
         });
+        var cnt = await Item.count();
+        res.json({'list':list,'count':cnt})
+
+    } catch (err) {
+        console.log(err);
+        next(err);
+    }
 })
 
 //상세보기 
-app.get('/item/detail',(req,res) => {
+app.get('/item/detail',async(req,res,next) => {
     //파라미터 읽어오기
     const itemid = req.query.itemid;
-    connection.query('select * from goods where itemid = ?',[itemid], function(err,results,fields){
-        if(err) {
-            throw err;
-        }
-        //데이터의 존재 여부 확인 
-        if(results.length === 0) {
-            res.json({'result':false});
-        }else {
-            res.json({'result':true, 'item':results[0]});
-        }
-    })
+    console.log(itemid)
+    try {
+        var item = await Item.findOne({
+            where:{
+                itemid:itemid
+            }
+        });
+        res.json({'result':true,'item':item})
+    } catch (err) {
+        console.log(err)
+        res.json({'result':false})
+    }
 })
 app.get('/item/insert',(req,res)=> {
     fs.readFile('public/insert.html',function(err,data){
@@ -305,16 +293,20 @@ app.post('/item/insert',upload.single('pictureurl'),async(req,res) => {
        })
     
 })
-app.post('/item/delete',(req,res) => {
+app.post('/item/delete',async(req,res,next) => {
     //삭제를 위한 파라미터 읽기
     const itemid = req.body.itemid;
-    connection.query('delete from goods where itemid = ?',[itemid],function(err,results,fields){
-        if(results.affetedRows >= 0){
-            res.send({'result' : true});
-        }else{
-            res.send({'result' : false});
-        }
-    })   
+    
+    try {
+        var item = await Item.destroy({
+            where:{itemid:itemid}
+        });
+        res.json({'result':true})
+    } catch (err) {
+        console.log(err)
+        next(err)
+        res.json({'result':false})
+    }
 })
 
 app.get('/item/update',(req,res) => {
@@ -322,7 +314,8 @@ app.get('/item/update',(req,res) => {
         res.end(data);
     })
 })
-app.post('/item/update',upload.single('pictureurl'),(req,res)=>{
+//수정
+app.post('/item/update',upload.single('pictureurl'),async(req,res)=>{
     //파라미터 가져오기
     const itemid = req.body.itemid;
     const itemname = req.body.itemname;
@@ -339,17 +332,20 @@ app.post('/item/update',upload.single('pictureurl'),(req,res)=>{
         pictureurl = oldpictureurl;
     }
 
-    connection.query('update goods set itemname =? ,price = ? , description = ?, pictureurl = ? where itemid = ?',
-        [itemname,price,description,pictureurl,itemid],function(err,results,fields){
-            if(err) {
-                throw err;
-            }
-            if(results.affetedRows >= 0) {
-                res.json({"result" : true});
-            }else{
-                res.json({"result" : false});
-            }
-        })
+    try {
+        var item = await Item.update({
+            itemname:itemname,
+            price:price,
+            description:description,
+            pictureurl:pictureurl
+        },{
+            where:{itemid:itemid}
+        });
+        res.json({'result':true})
+    } catch (err) {
+        console.log(err)
+        res.json({'result':false})
+    }
 
 })
 app.get('/item/date', (req,res) => {

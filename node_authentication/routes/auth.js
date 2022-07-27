@@ -2,13 +2,18 @@ const express = require('express');
 const passport = require('passport');
 const bcrypt = require('bcrypt');
 const {isLoggedIn, isNotLoggedIn} = require('./middleware');
-const User = require('../models/user');
+const {User} = require('../models');
 
 const router = express.Router();
 
-router.post('./join',isNotLoggedIn,async(req,res,next) => {
+router.post('/join',isNotLoggedIn,async(req,res,next) => {
+    //post 방식의 파라미터 읽어오기 , 구조 분해 할당 가능  
+    const {email,nick,password}  = req.body;
     try {
         //email 중복 검사
+        //User는 users 테이블의 모든 데이터를 가지고 있는 객체
+        //User.findOne => select * from users limit 0,1
+        //select * from users where email=? limit 0,1;
         const exUser = await User.findOne({where: {email}}); 
         if(exUser) {    //있다면 
             return res.redirect('/join?error=exist');
@@ -23,7 +28,7 @@ router.post('./join',isNotLoggedIn,async(req,res,next) => {
             password:hash
         });
 
-        return res.redirect('./');
+        return res.redirect('/');
 
     } catch (err) {
         console.log(err);
@@ -31,7 +36,7 @@ router.post('./join',isNotLoggedIn,async(req,res,next) => {
     }
 })
 
-router.post('./login',isNotLoggedIn, (req,res,next) => {
+router.post('/login',isNotLoggedIn, (req,res,next) => {
     //localStratgy 의 함수를 호출해서 로그인을 수정 
     //authEorror는 에러가 발생했을 때 에러 객체
     //user는 로그인에 성공했을 때 유저 정보
@@ -55,7 +60,7 @@ router.post('./login',isNotLoggedIn, (req,res,next) => {
             return res.redirect('/');
         });
     })(req,res,next); //미들웨어 내에서 호출하는 미들웨어는 정보를 전달 
-})
+});
 
 //로그아웃 처리 - 로그인 되어 있을 때 만 수행 
 router.get('/logout',isLoggedIn,(req,res) => {
@@ -66,5 +71,14 @@ router.get('/logout',isLoggedIn,(req,res) => {
     })
 })
 
+router.get('/kakao', passport.authenticate('kakao'));
+
+router.get('/kakao/callback', passport.authenticate('kakao', {
+    failureRedirect: '/',
+    }), (req, res) => {
+    res.redirect('/');     
+})
+
+module.exports = router;
 
 

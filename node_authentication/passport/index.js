@@ -4,6 +4,8 @@ const passport = require('passport');
 
 //전략 모듈을 가져오기 
 const local = require('./localStrategy');
+const kakao = require('./kakaoStrategy');
+
 
 //테이블 가져오기 
 const User = require('../models/user');
@@ -17,12 +19,21 @@ module.exports = () => {
 
     passport.deserializeUser( (id,done) => {
         //데이터베이스에서 id에 해당하는 값이 있는지 찾아서 세션에 저장
-        User.findOne({ where: { id } })
+        User.findOne({ where: { id } ,
+        include : [
+            {model:User,
+            attribute:['id','nick'],
+            as:'Followers'},
+            {model:User,
+                attribute:['id','nick'],
+                as:'Followings'}]})
         .then(user => done(null, user))
         .catch(err => done(err));
     })
     //로컬 로그인 함수를 호출
     local();
+    //카카오 로그인 함수
+    kakao();
 }
 
 

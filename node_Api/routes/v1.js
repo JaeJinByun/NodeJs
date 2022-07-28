@@ -1,15 +1,16 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const {verifyToken} = require('./middleware');
-const {Domain, User} = require('../models');
+const {Domain, User, Post, Hashtag} = require('../models');
 const router = express.Router();
 //토큰 요청을 처리 
 router.post('/token', async (req, res) => {
     const { clientSecret } = req.body;
+   
     try {
         //도메인 가져오기 
       const domain = await Domain.findOne({
-        where: { clientSecret },
+        where: {clientSecret},
         include: {
           model: User,
           attribute: ['nick', 'id'],
@@ -44,6 +45,24 @@ router.get('/test', verifyToken, (req, res) => {
     res.json(req.decoded);
 });
 
+//클라이언트의 요청을 처리하기 위한 코드
+//접속한 클라이언트가 작성한 post를 전부 전송
+router.get('/posts/my',verifyToken, (req,res)=> {
+  //id가 작성한 모든 Post찾ㅇ오기
+  Post.findAll({where:{userId:req.decoded.id}})
+  .then((posts) => {
+    res.json({
+      code:200,
+      payload:posts
+    })
+  })
+  .catch( (err) => {
+    return res.status(500).json({
+      code:500,
+      message : '서버 에러'
+    })
+  })
+})
 
 module.exports = router;
 

@@ -20,7 +20,7 @@ const jwt = require('jsonwebtoken');
 exports.verifyToken = (req,res,next) => {
     try {
         //유효성 검사 - 실패하면 예외가 발생함
-        req.decode = jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
+        req.decoded = jwt.verify(req.headers.authorization, process.env.JWT_SECRET);
         return next();
     } catch (err) {
         if(err.name === 'TokenExpiredError') {

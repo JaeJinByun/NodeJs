@@ -102,7 +102,7 @@ app.use ('/v1',v1);
 app.use('/img', express.static(path.join(__dirname, 'uploads')));
 //에러가 발생한 경우 처리
 app.use((req, res, next) => {
-    const err = new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
+    const err = new Error(`${req.method}${req.url} 라우터가 없습니다.`);
 	err.status = 404;
 	next(err);
 });

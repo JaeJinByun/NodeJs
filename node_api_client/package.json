@@ -1,0 +1,15 @@
+{
+  "name": "nodeclient",
+  "version": "1.0.0",
+  "description": "client use Api",
+  "main": "App.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/JaeJinByun"
+  },
+  "author": "jin",
+  "license": "ISC"
+}

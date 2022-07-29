@@ -6,7 +6,10 @@ const axios = require('axios');
 const router = express.Router();
 
 //서버 URL 저장
-const URL = 'http://localhost:9002/v1';
+//const URL = 'http://localhost:9002/v1';
+const URL = 'http://localhost:9002/v2';
+
+
 
 axios.defaults.headers.origin = 'http://localhost:4000';
 
@@ -42,5 +45,8 @@ router.get('/mypost', async(req,res,next) => {
   }
 })
 
+router.get('/',(req,res) => {
+  res.render('main', {key:process.env.CLIENT_SECRET});
+})
 
-module.exports = router;
+module.exports = router;  

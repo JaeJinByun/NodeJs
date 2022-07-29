@@ -1,8 +1,13 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const {verifyToken} = require('./middleware');
+const {verifyToken, deprecated} = require('./middleware');
 const {Domain, User, Post, Hashtag} = require('../models');
 const router = express.Router();
+
+//모든 요청에 deprecated를 수행
+//v1 으로 요청하느 클라이언트 애플리케이션은 경고가 발생
+router.use(deprecated);
+
 //토큰 요청을 처리 
 router.post('/token', async (req, res) => {
     const { clientSecret } = req.body;
@@ -48,7 +53,7 @@ router.get('/test', verifyToken, (req, res) => {
 //클라이언트의 요청을 처리하기 위한 코드
 //접속한 클라이언트가 작성한 post를 전부 전송
 router.get('/posts/my',verifyToken, (req,res)=> {
-  //id가 작성한 모든 Post찾ㅇ오기
+  //id가 작성한 모든 Post찾아오기 
   Post.findAll({where:{userId:req.decoded.id}})
   .then((posts) => {
     res.json({

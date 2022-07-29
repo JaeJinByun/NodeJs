@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>websocket 모듈</title>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+        <span id="status"></span>
+        <br/>
+        <br/>
+        <ul id="messages"></ul>
+    </body>
+
+    <script>
+            console.log("1");
+            var status = document.getElementById('status');
+            var messages = document.getElementById('messages');
+
+            //웹 소켓 객체 생성 - 바로 연결
+            var ws = new WebSocket('ws://192.168.10.5:10001',
+             'example-echo');
+
+            //연결되었을 때 수행
+            ws.addEventListener("open", (e) =>{
+                status.innerHTML = '접속 성공';
+                //메시지 전송
+                for(var i=0; i<10; i=i+1){
+                    ws.send('Message:' + i);
+                }
+            });
+
+            //서버에서 메시지가 올 때 수행
+            ws.addEventListener("message", (e) =>{
+                //전송된 메시지는 e.data
+                messages.innerHTML += 
+                    '<li>받은 메시지:' + e.data + '</li>';
+            })
+
+            //연결해제 할 때 수행
+            ws.addEventListener("close", (e) =>{
+                status.innerHTML = '접속 해제';
+            });
+        
+    </script>
+</html>

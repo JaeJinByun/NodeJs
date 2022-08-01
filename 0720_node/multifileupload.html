@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>하나의 파일 업로드</title>
+        <meta charset="utf-8">
+    </head>
+    <body>
+        <form id="form" method="post" enctype="multipart/form-data">
+            <p>제목<input type="text" name="title" id="title"/></p>
+            <p>첨부파일: <input type="file" name="image" id="image" multiple=""multiple accept="image/*"/></p>
+            <button type="submit">업로드</button>
+        </form>
+    <script>
+        document.getElementById('form').addEventListener('submit', (e) => {
+            alert('전송')
+            //기존에 소유하고 있는 이벤트 처리는 하지 않음 
+            e.preventDefault();
+            //ajax로 파라미터 와 데이터 전송
+            const formData = new FormData();
+            var files = e.target.image.files;
+            //파일을 전송할 수 있도록 데이터에 추가 
+            for(var idx=0; idx<files.length; idx++){
+                formData.append('image',e.target.image.files[idx]);
+            }
+
+            formData.append('title',e.target.title.value);
+
+            //post 방식으로 formData 를 전송하는 ajax 코드 
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST","/multifileupload",true);
+            xhr.send(formData);
+            xhr.addEventListener('load', (data) => {
+                alert("업로드 성공");
+            })
+        })
+    </script>
+    </body>
+</html>

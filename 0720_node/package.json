@@ -1,0 +1,35 @@
+{
+  "name": "0720node",
+  "version": "1.0.0",
+  "description": "express",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon app",
+    "test": "sample"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JaeJinByun"
+  },
+  "keywords": [
+    "basic"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.0.1",
+    "express": "^4.18.1",
+    "express-mysql-session": "^2.1.8",
+    "express-session": "^1.17.3",
+    "file-stream-rotator": "^0.6.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^2.3.3",
+    "pug": "^3.0.2",
+    "session-file-store": "^1.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.19"
+  }
+}

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>세션 스토리지</title>
+    </head>
+    <body>
+        <fieldset>
+            <legend>세션 스토리지 이용</legend>
+            key : <input type="text" id="key"/>
+            value : <input type="text" id="value"/>
+
+            <input type="button" value="삽입" id="addbtn"/>
+            <input type="button" value="삭제" id="delbtn"/>
+            <input type="button" value="윈도우추가" id="newwindowbtn"/>
+        </fieldset>
+        <fieldset>
+            <legend>세션 스토리지 데이터</legend>
+            <select id="list" size="10">
+            </select>
+            <input type="button" value="재출력" id="reloadbtn"/>
+        </fieldset>
+    </body>
+
+    <script>
+
+        let key = document.getElementById("key");
+        let value = document.getElementById("value");
+
+        let addbtn = document.getElementById("addbtn");
+        //세션 스토리지의 내용을 list에 출력하는 함수 
+        let showdata = function() {
+            
+            //list 안의 내용을 삭제
+            list.innerHTML = '';
+            //세션 스토리지 순회
+            for(var i=0; i<sessionStorage.length; i++){
+                var temp =sessionStorage.key(i);
+                //select에 추가
+                list.options[list.options.length] = new Option(temp + ":" + sessionStorage[temp], temp);
+                console.log(list.options.length);
+            }
+            key.value = '';
+            value.value = '';
+        }
+
+        addbtn.addEventListener('click', (e)=>{
+            //세션 스토리지에 저장
+            sessionStorage[key.value] = value.value;
+
+            showdata();
+        });
+
+        let delbtn = document.getElementById("delbtn");
+        delbtn.addEventListener('click' ,(e)=>{
+            delete sessionStorage[key.value];
+
+            showdata();
+        })
+
+        let newwindowbtn = document.getElementById("newwindowbtn");
+        
+        newwindowbtn.addEventListener('click',(e)=>{
+            window.open(location.href);
+        });
+
+        let list = document.getElementById("list");
+        let reloadbtn = document.getElementById("reloadbtn");
+        //화면에 모든 요소가 로드되고 나오면
+        window.addEventListener('load', (e)=> {
+           showdata();
+        })
+    </script>
+</html>

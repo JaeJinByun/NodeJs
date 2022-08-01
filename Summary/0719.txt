@@ -1,0 +1,462 @@
+**MySQL
+1.DDL
+1)ENGINE
+=>MyISAM(Index Sequential Access Media): 데이터를 인덱스를 이용해서 저장해서 검색을 빠르게 할 수 있도록 한 구조인데 삽입 이나 삭제 또는 갱신을 할 때 단순한 데이터의 변경 뿐 아니라 인덱스의 조정도 같이 해야 하므로 삽입, 삭제, 갱신 작업시 많은 시간을 소모
+MySQL 5.1 버전까지의 기본 ENGINE이며 트랜잭션이 지원되지 않음
+
+=>InnoDB: 트랜잭션 처리에 유리하도록 만들어진 엔진
+
+2)DEFAULT CHARSET
+=>테이블을 만들 때 인코딩 방식을 설정
+=>이전에 MySQL 의 기본 인코딩이 ISO 8859-1 이라서 한글이 깨지는 문제가 있어서 설정
+
+3)auto_increment=초기값 설정
+=>일련 번호의 초기값을 재설정
+=>alter table 로도 가능
+
+4)테이블 생성
+=>contact 테이블
+num 정수, 일련번호, 기본키
+name 자주 변하는 문자열이고 영문 20자(한글의 경우는 곱하기 3)
+address 자주 변하지 않는 문자열이고 영문 100자
+tel 자주 변하기는 하지만 크기는 고정 영문 20자
+email 변하지 않는 문자열 영문 100자
+birthday 날짜만 저장, 연산을 자주 수행
+
+create table contact(
+	num int auto_increment primary key,
+	name char(20),
+	address varchar(100),
+	tel varchar(20),
+	email varchar(100),
+	birthday date)
+ENGINE=INNODB auto_increment=1 
+default charset=utf8;
+
+-- 테이블 생성 여부
+select * from contact;
+
+-- 테이블의 구조 확인
+desc contact;
+
+5)테이블의 구조 변경 - ALTER
+=>새로운 컬럼 추가
+alter table 테이블이름 add 컬럼이름 자료형 제약조건;
+
+age 라는 컬럼을 정수 자료형으로 추가
+alter table contact add age int;
+
+=>컬럼 삭제
+alter table 테이블이름 drop 컬럼이름;
+
+age 라는 컬럼 제거
+alter table contact drop age;
+
+=>컬럼의 자료형 변경
+alter table 테이블이름 modify 컬럼이름 자료형;
+
+=>컬럼 이름 변경
+alter table 테이블이름 change 기존컬럼이름 새로운컬럼이름 자료형;	
+
+=>테이블의 제약 조건 변경
+alter table 테이블이름 modify 컬럼이름 자료형 제약조건
+
+=>테이블의 제약 조건 추가
+alter table 테이블이름 add 제약조건(컬럼이름);
+
+=>테이블의 제약 조건 삭제
+alter table 테이블이름 drop constraint 제약조건이름;
+
+=>not null 을 추가하거나 제거하는 것은 제약조건 수정으로 하는 것이 아니고 컬럼의 구조를 변경하는 것입니다.
+not null 과 null을 허용하는 것의 차이는 단순한 제약조건의 설정 뿐 아니라 공간의 크기 와도 관련이 있기 때문입니다.
+
+데이터베이스 와 최근의 프로그래밍 언어(일반적으로 Optional 이라는 단어를 이용)들은 null의 여부를 데이터를 직접 읽어서 하지 않고 플래그를 만들어서 구분합니다.
+
+6)테이블 삭제
+=>drop table 테이블이름;
+=>테이블이 존재하는데 제거되지 않는 경우는 이 테이블을 참조하는 외래키가 다른 테이블에 설정되어 있는 경우입니다.
+이 경우는 외래키를 소유한 테이블을 먼저 삭제해야 합니다.
+
+7)테이블의 데이터만 삭제
+=>truncate table 테이블이름;
+=>이 명령을 사용하면 데이터는 실제로 지워지기 때문에 데이터를 저장하는 공간은 늘어나게 되지만 복원은 안됨
+
+8)테이블 이름 수정
+=>alter table 이전테이블이름 rename 새로운테이블이름;
+
+2.외래키 설정 기준
+=>외래키를 설정할 때는 테이블 간의 관계를 파악을 해야합니다.
+여기서의 관계는 카디널리티(대응 수)를 확인하는 것입니다.
+=>1:1 -> 양쪽 테이블의 데이터가 0개 나 1개씩 매핑되는 경우
+이 경우는 각 테이블의 기본키를 다른 테이블에 외래키로 추가를 해야 합니다.
+이런 경우가 만들어지는 경우는 테이블을 분할하는 경우가 가장 많습니다.
+
+=>1:N -> 한 쪽 테이블의 데이터는 다른 쪽 테이블의 데이터 0개 이상 과 매핑이 되고 반대편 테이블의 데이터는 0 개 또는 1개와 매핑이 되는 경우에는 1쪽 테이블의 기본키나 unique 한 속성을 N 쪽 테이블의 외래키로 설정합니다.
+
+회원 과 게시글 의 관계가 대표적
+
+=>N:N -> 양쪽 테이블의 데이터가 다른 쪽 테이블에 0개 이상 매핑되는 경우
+양쪽 테이블의 기본키를 외래키로 갖는 별도의 테이블을 만들어서 사용
+
+회원 과 상품 간의 관계
+회원 과 관람한 영화의 관계
+
+3.View
+=>자주 사용하는 Select 구문을 하나의 테이블 처럼 만들어 두는 것
+=>View는 한 번 만들어지면 Select 구문을 메모리에 저장하기 때문에 조회속도가 빠름
+=>View는 각 사용자 별로 필요한 부분만 접근할 수 있도록 할 수 있어서 보안성이 우수
+
+4.인덱스
+=>데이터를 빠르게 조회하기 위해서 설정하는 것
+=>메모리 사용량은 늘어남
+=>primary key 와 unique를 설정하면 자동으로 인덱스가 설정됩니다.
+=>데이터를 조회할 때 인덱스를 이용해서 조회하면 인덱스 순서대로 정렬해서 데이터를 리턴합니다.
+
+5.프로시저, 함수
+=>프로시저 와 함수는 둘 다 자주 사용하는 SQL 이나 연산식을 하나의 이름으로 묶어두고 사용하는데 함수는 반드시 리턴을 해야 하지만 프로시저는 그렇지 않습니다.
+=>프로시저를 사용하면 속도가 빨라지고 보안성이 우수해집니다.
+
+6.트리거
+=>DML 문장 수행 전이나 수행 후에 수행할 내용을 작성하는 것
+
+7.Synonym(동의어)
+=>데이터베이스 개체에 다른 이름을 부여하는 것
+
+**Mongo DB
+1.개요
+=> 10gen 에서 개발한 NoSQL
+=> Document 기반의 NoSQL
+=> 내부는 C++로 구현되어 있고 명령어 입력 터미널(인터페이스)은 자바스크립트 인터프리터 형태로 제공
+=> 스키마 없이 데이터를 저장하는 것이 가능
+특별히 구조를 만들 필요가 없음
+=>느슨한 트랜잭션을 사용
+=>CRUD 메뉴얼: https://docs.mongodb.com/manual/crud
+
+2. 적합한 서비스
+=>스키마가 자주 변경되는 환경
+=>작은 양의 데이터를 자주 저장하는 환경에 적합
+=>분산 컴퓨팅 환경에 적합 - 관계형 데이터베이스의 단점 중의 하나인 join(Linking 과 Embedding 으로 해결) 이 없기 때문
+=>러닝 커브가 짧은 시스템 개발
+
+3.설치
+1)windows: https://www.mongodb.com/try/download/community 에서 다운로드 받아서 설치
+
+2)mac
+brew tap mongodb/brew
+
+brew install mongodb-community
+
+4. 실행
+1)서버 실행
+windows
+=>service 에 등록된 경우에는 service 에서 실행할 수 있고 net start MongoDB 로 실행 가능
+=>service 에 등록이 안된 경우
+mongod --dbpath 데이터저장경로
+
+mac
+brew services start mongodb-community
+
+
+2)클라이언트 접속
+=>mongodb 가 설치된 컴퓨터의 경우는 mongo 프로그램 실행: 로컬에서 실행 중인 mongodb 에 접속
+
+5.관계형 데이터베이스 와 의 용어 비교
+Database <-> Database
+Table <-> Collection
+Row(Record, Tuple) <-> Document
+Column(Attribute) <-> Field
+Index <-> Index
+Join <-> Embedding & Linking
+Select 구문의 결과가 Row 의 집합(테이블) <-> Cursor(반복자를 이용해서 순차 접근) 리턴
+
+6.Architecture
+Application <-> Driver <-> Mongo DB <-> WiredTiger(스토리지 엔진) <-> 저장 장치
+
+7.Mongo DB의 데이터 표현법
+=>JSON 형식의 Binary JSON
+객체 -> {속성:값, 속성:값...}
+배열 -> [데이터 나열]
+
+하나의 객체를 표현할 때 속성의 순서가 다르면 다른 데이터로 간주
+{"name":"adam", "birth":1997}
+{"birth":1997, "name":"adam"}
+
+
+특별한 경우가 아니면 속성이 값의 시작은 _로 하지 않는 것이 좋습니다.
+_로 시작하는 것은 mongo db의 예약어일 가능성이 있기 때문입니다.
+
+=>장점
+Light Weight: 메모리 절약
+Traversable: 데이터 접근 속도가 빨라짐
+Efficient: 기본 데이터 타입이 C 언어의 primitive type
+
+
+8.외부 데이터 읽기
+mongoimport --db 사용할데이터베이스이름 --collection 컬렉션이름 < 파일경로
+=>community 버전에는 이 명령이 없을 수 있습니다.
+=>mongoimport이 없는 경우에는 https://www.mongodb.com/try/download/community 에서 MongoDB Database tools를 다운로드 받아서 수행
+
+9.데이터베이스 관련 명령
+1)데이터베이스 확인
+show dbs
+
+2)데이터베이스 사용
+use 데이터베이스이름
+=>데이터베이스가 없으면 생성은 하지만 사이즈는 설정하지 않습니다.
+
+3)현재 사용 중인 데이터베이스 확인
+db
+
+4)사용 중인 데이터베이스 삭제 - lock 이 설정되서 이 작업이 완료될 때 까지 MongoDB 서버를 사용할 수 없습니다.
+db.dropDatabase()
+
+10.Collection
+=>관계형 데이터베이스의 테이블 과 유사
+=>Collection은 생성하지 않고 사용이 가능하며 구조를 정의할 필요가 없음
+=>이론적으로 모든 데이터를 하나의 Collection에 넣는 것이 가능하지만 하나의 Collection 에 너무 많은 데이터를 삽입하게 되면 조회 성능이 떨어지므로 분할해서 저장하는 것을 권장
+=>MongoDB에서는 구조가 정의되지 않으므로 여러 종류의 데이터를 하나의 Collection에 삽입할 수 있지만 되도록이면 동일한 구조를 갖는 데이터만 저장하는 것을 권장합니다.
+
+1)Collection 생성 명령
+db.createCollection("컬렉션이름")
+
+2)데이터베이스 내의 Collection 확인
+db.getCollectionNames()
+
+show collections
+
+3)Collection 제거
+db.컬렉션이름.drop()
+
+4)Collection 이름 변경
+db.컬렉션이름.renameCollection("변경할 이름");
+
+5)Capped Collection
+=>미리 사이즈를 정해놓고 정해놓은 사이즈 이상이되면 오래된 데이터부터 삭제하는 Collection
+=>로그 데이터 저장할 때 많이 사용하던 방식
+최근에는 이런 Collection을 잘 생성하지 않음
+
+11.CRUD
+1)컬렉션의 데이터 전체 조회
+=>db.Collection이름.find()
+
+2)도큐먼트 생성
+=>db.collection이름.insert({속성이름:값, 속성이름:값...})
+=>최근에는 insert 대신에 insertOne 이나 insertMany를 사용하는 것을 권장
+
+db.users.insert({name:"adam", age:27, gender:"man"})
+
+=>기본키에 해당하는 objectId 컬럼을 자동으로 사용
+
+=>Mongo DB 에서는 최상위 배열을 지원하지 않습니다.
+데이터를 삽입할 때 배열을 대입하면 각각의 데이터를 분할해서 삽입합니다.
+기억을 해두어야 하는 내용입니다.
+REST API 서버를 만들어서 데이터를 제공할 때 도 배열을 던지는 것은 좋지 않습니다.
+배열을 제공하고자 할 때는 객체 안의 어떤 속성에 배열을 대입해서 전송하는 것이 좋습니다.
+ 
+배열의 형태로 삽입 - 2개의 데이터로 분할해서 삽입됩니다.
+db.users.insert([{name:"rusio"}, {name:"cider"}])
+
+3)멀티 스레드
+=>insert 함수의 두번째 매개변수에 ordered 옵션을 이용하면 멀티 스레드 사용이 가능
+=>Node 나 Mongo DB는 기본적으로 싱글 스레드 기반
+=>한꺼번에 여러 개의 데이터를 삽입할 때 싱글 스레드 기반이면 중간에 에러가 발생하면 데이터가 하나도 삽입되지 않지만 멀티 스레드를 이용하면 에러가 발생하면 에러가 발생한 데이터만 삽입되지 않습니다.
+
+=>인덱스 생성
+db.sample.createIndex({name:1}, {unique:true})
+
+=>데이터 1개 추가
+db.sample.insert({name:"park"})
+
+=>데이터 여러 개 추가
+db.sample.insert([{name:"kim"}, {name:"park"}, {name:"choi"}, {name:"lee"}])
+
+=>확인 - park 과 kim 데이터만 존재
+db.sample.find()
+
+=>컬렉션 삭제
+db.sample.drop()
+
+=>인덱스 생성
+db.sample.createIndex({name:1}, {unique:true})
+
+=>데이터 1개 추가
+db.sample.insert({name:"park"})
+
+=>데이터 여러 개 추가 - 멀티 스레드 사용
+db.sample.insert([{name:"kim"}, {name:"park"}, {name:"choi"}, {name:"lee"}], {ordered:false})
+
+=>확인 - 에러가 없는 데이터는 전부 삽입
+db.sample.find()
+
+4)ObjectId
+=>RDBMS 에서는 Sequence 나 Auto_Increment를 이용해서 구별하기 위한 번호를 생성하는데 Mongo DB에서는 데이터를 삽입할 때 식별하기 위한 식별자로 _id 라는 필드를 생성하고 12byte로 구성된 ObjectId 라는 데이터를 삽입합니다.
+=>이 값을 직접 생성할 때는 new ObjectId() 로 생성해서 삽입하는 것도 가능
+
+5)insert 대신 추천하는 함수
+=>데이터 1개 삽입: insertOne
+=>여러 개의 데이터 삽입: insertMany
+
+6)자바스크립트 구문 사용 가능
+var num=1
+
+for(var i=0; i<3; i=i+1){
+	db.sample.insertOne({name:"user"+i, score:num})
+}
+
+7)데이터 조회: find()
+=>특징
+Mongo DB는 조회할 때 데이터를 리턴하는 것이 아니고 커서를 리턴
+
+Cursor: 여러 개의 데이터를 조회하는 경우 여러 개의 데이터를 순차적으로 접근할 수 있는 포인터와 유사한 개념
+프로그래밍에서는 Iterator 나 Enumerator 라고 부릅니다.
+
+=>find()
+db.컬렉션이름.find(<query>, <projection>)
+조건이 먼저
+
+=>컬렉션의 전체 데이터 조회는 find()
+
+=>특정 값과 일치하는 데이터 조회
+db.컬렉션이름.find({속성이름:값,....})
+
+db.users.find({name:"adam"})
+
+=>특정 속성 조회
+db.컬렉션이름({조건}, {속성이름:bool 이나 1 또는 0 설정, ...})
+true 나 1을 설정하면 조회되고 false 나 0을 설정하면 제외
+
+db.users.find({name:"adam"}, {name:0})
+
+=>연산자를 이용한 조회
+$eq: =
+$ne: !=
+$gt: >
+$gte: >=
+$lt: <
+$lte: <=
+
+height 가 175 이상
+db.컬렉션이름.find({height:{$gte:175}})
+
+height 가 175 이상 180 이하
+db.컬렉션이름.find({height:{$gte:175, $lte:180}})
+
+height 가 175 이상 weight 는 80 이하
+db.컬렉션이름.find({height:{$gte:175}, weight:{$lte:80}})
+
+$in: 포함된
+$nin: 포함되지 않은
+
+color 가 black 이나 white 인 경우
+db.컬렉션이름.find({color:{$in:['black', 'white']}})
+
+$not
+$or
+$and
+$nor
+
+qty 가 2보다 크지 않은
+db.컬렉션이름.find({qty:{$not:{$gt:2}}})
+
+qty 가 100보다 크거나 color 가 black 인 데이터
+db.컬렉션이름.find({$or[{qty:{$gt:100}}, {color:{$eq:'black}}]})
+
+=>문자열 검색 - 정규 표현식 이용
+정규 표현식은 / 표현식 /의 형태로 작성
+^: 시작하는
+$: 끝나는
+
+샘플 데이터 입력
+db.users.insert({name:'paulo'})
+db.users.insert({name:'patric'})
+db.users.insert({name:'pedro'})
+
+//name 에 a가 포함된 데이터 조회
+db.users.find({name:/a/})
+
+//name 이 pa로 시작하는
+db.users.find({name:/^pa/})
+
+//name 이 ro로 끝나는
+db.users.find({name:/ro$/})
+
+8)배열 연산자
+=>관계형 데이터베이스에서는 하나의 primary key 에 여러 개의 데이터가 매칭이 되면 테이블을 분할합니다.
+테이블을 분할하게 되면 데이터를 조회할 때 join을 동반하게 되서 메모리 사용량도 늘어나고 조회속도도 느립니다.
+=>Mongo DB에서는 하나의 primary key 여러 개의 데이터가 매핑되는 경우 배열을 이용해서 데이터를 삽입할 수 있도록 해 주었습니다.
+
+$all: 순서와 상관없이 배열 안의 요소가 모두 포함되면 선택
+$elemMatch: 조건과 맞는 배열 속 요소를 가진 데이터를 선택
+
+=>샘플 데이터를 생성
+db.inventory.insertMany([
+	{item:"journal", qty:25, tags:["blank", "red"]},
+	{item:"notebook", qty:25, tags:["red", "blank"]},
+	{item:"paper", qty:25, tags:[]},
+	{item:"planner", qty:25, tags:["blank", "red"]},
+	{item:"postcard", qty:25, tags:["blue"]},
+])
+
+-- tags 에 red 가 포함된 모든 데이터가 조회
+db.inventory.find({tags:"red"}, {_id:false})
+
+-- tags 에 red 와 blank 가 순서대로 저장된 데이터 조회
+db.inventory.find({tags:["red", "blank"]}, {_id:false})
+
+-- tags 에 red 와 blank 가 순서와 상관없이 저장된 데이터 조회
+db.inventory.find({tags:{$all:["red", "blank"]}}, {_id:false})
+
+-- tags 의 데이터가 red 이거나 blue 인 데이터 조회
+db.inventory.find({tags:{$elemMatch:{$eq:"red", $eq:"blue"}}}, {_id:false})
+
+-- $size 는 개수를 지정해서 조회 가능: 데이터가 존재하지 않는 것 검색
+db.inventory.find({tags:{$size:0}}, {_id:false})
+
+-- 조건에 맞는 값만 추출 {"속성이름.$":true} 를 추가
+
+9)서브 도큐먼트 조회
+=>속성이름:{조건} 을 이용하는 방법이 있고 속성이름.내부속성이름 으로 조회
+db.users.insert({name:"adam", phone:{mobile:"010", house:"011"}});
+db.users.insert({name:"rusia", phone:{mobile:"012", house:"013"}});
+
+모든 속성이 일치: db.users.find({phone:{mobile:"010", house:"011"}}) 
+모든 속성을 기재하지 않아도 됨: db.users.find({"phone.mobile":"010", "phone.house":"011"})
+
+10)개수 제한: limit(개수)
+
+
+11)1개만 조회: find 대신 findOne()
+=>서버 프로그래밍에서 기본키를 가지고 데이터를 조회할 때는 find 대신에 findOne 을 호출해야 합니다.
+
+12)건너뛰기: skip(개수)
+
+13)정렬: sort({정렬할 컬럼 이름: 방법, ....})
+=>방법은 1을 주면 오름차순 정렬이고 -1을 주면 내림차순 정렬
+
+14)Cursor
+=>Mongo DB에서는 find() 호출 결과로 Cursor를 리턴합니다.
+=>커서가 hasNext()를 호출하면 다음 데이터의 존재 여부를 리턴
+=>커서가 next()를 호출하면 다음 데이터를 리턴합니다.
+=>데이터베이스에 직접 접속해서 하나 하나의 데이터를 확인할 때 사용
+애플리케이션에서는 이 형태로 사용하지 않는 경우가 많습니다.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

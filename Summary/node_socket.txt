@@ -1,0 +1,1101 @@
+**Node Socket Programming
+1.Socket
+1)소켓
+=>네트워크 인터페이스 카드(NIC)를 추상화 한 객체
+=>통신을 하기 위해서는 반드시 소켓을 이용해야 함
+
+2)소켓 활용 방법
+=>직접 소켓을 구현해서 통신: 저수준 통신으로 효율은 좋지만 어렵습니다.
+=>이미 구현된 소켓을 이용해서 통신: 고수준 프로토콜로 구현된 소켓을 이용하는 방식으로 구현이 쉽지만 효율은 떨어집니다.
+이 방식의 대표적인 것인 http 나 https를 이용하는 웹 서버 구현
+=>고수준 프로토콜로 구현된 소켓 통신 중에서 http 나 https 의 단점을 보완한 형태가 나왔는데 그게 WebSocket 입니다.
+
+=>http 나 https 의 단점
+ - 연결을 유지하지 않음
+ - 효율이 떨어짐
+ - 클라이언트가 요청을 보내야만 서버는 응답
+
+
+서버가 클라이언트의 요청이 없어도 응답을 보내는 것을 SSE(Server Sent Event)라고 하기도 하기 Push 라고도 합니다.
+
+2.Node 에서 WebSocket 사용 방법
+=>여러 모듈이 제공됨
+1)websocket 모듈: http 서버를 연결해야 함
+2)ws 모듈
+3)Socket.IO 모듈
+=>자동 재 연결이 가능
+=>IE 하위 버전 과 도 호환됨
+IE 하위 버전에서 접속하면 IE 하위 버전에서 동작하는 폴링 방식을 이용
+
+3.websocket 모듈 이용 - HttpServer 와 연결
+1)프로젝트 생성
+
+2)패키지 설치
+npm install websocket
+
+3)메인 화면으로 사용할 index.html 파일을 생성하고 작성
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>websocket 모듈</title>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+        <span id="status"></span>
+        <br/>
+        <br/>
+        <ul id="messages"></ul>
+    </body>
+
+    <script>
+        //웹 소켓을 지원하면 
+        if('WebSocket' in window){
+            var status = document.getElementById('status');
+            var messages = document.getElementById('messages');
+
+            //웹 소켓 객체 생성 - 바로 연결
+            var ws = new WebSocket('ws://192.168.10.5:10001',
+             'example-echo');
+
+            //연결되었을 때 수행
+            ws.addEventListener("open", (e) =>{
+                status.innerHTML = '접속 성공';
+                //메시지 전송
+                for(var i=0; i<10; i=i+1){
+                    ws.send('Message:' + i);
+                }
+            });
+
+            //서버에서 메시지가 올 때 수행
+            ws.addEventListener("message", (e) =>{
+                //전송된 메시지는 e.data
+                messages.innerHTML += 
+                    '<li>받은 메시지:' + e.data + '</li>';
+            })
+
+            //연결해제 할 때 수행
+            ws.addEventListener("close", (e) =>{
+                status.innerHTML = '접속 해제';
+            });
+        }
+    </script>
+</html>
+
+2)프로젝트에 App.js 파일을 생성하고 요청을 처리하는 코드를 작성
+var WebSocketServer = require('websocket').server;
+var http = require('http');
+var fs = require('fs');
+
+var server = http.createServer(function(req, res){
+    if(req.url === "/"){
+        res.writeHead(200, {'Content-Type': 'text/html'});
+        res.end('WebSocket')
+    }else if(req.url === '/index'){
+        fs.readFile('index.html', function(error, data){
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            res.end(data);
+        })
+    }
+})
+
+server.listen(10001, function(){
+    console.log('server is listening on port 10001');
+});
+
+//웹 소켓 서버 생성
+var wsServer = new WebSocketServer({
+    httpServer:server,
+    autoAcceptConnections:false
+});
+
+//이벤트 처리
+wsServer.on('request', function(request){
+    //클라이언트 와 연결
+    var connection = request.accept(
+        'example-echo', request.origin);
+    //클라이언트가 메시지를 전송하면
+    connection.on('message', function(message){
+        if(message.type === 'utf8'){
+            //받은 메시지를 출력
+            console.log('받은 메시지:' + message.utf8Data);
+            //받은 메시지를 다시 전송
+            connection.sendUTF(message.utf8Data);
+        }else if(message.type === 'binary'){
+            connection.sendBytes(message.binaryData);
+        }
+    });
+    connection.on('close', 
+        function(reasonCode, description){
+            console.log('Peer:' + 
+                connection.remoteAddress + 'disconnected');
+    });
+
+})
+
+
+4.ws 모듈: express 모듈 과 연동하는 Web Socket
+1)패키지 설치
+npm install cookie-parser dotenv express express-session morgan nunjucks ws
+
+npm install --save-dev nodemon
+
+2)routes 디렉토리를 생성하고 기본 요청을 처리할 index.js 파일을 생성해서 기본 요청 처리 코드를 작성
+const express = require('express');
+const router = express.Router();
+
+router.get('/', (req, res) => {
+    res.render('websocket');
+});
+
+module.exports = router;
+
+3)socket.js 파일을 생성해서 웹 소켓 로직을 작성
+//웹 소켓 모듈
+const WebSocket = require('ws');
+
+module.exports = (server) => {
+    //웹 소켓 서버 생성
+    const wss = new WebSocket.Server({server});
+
+    //클라이언트가 접속 요청을 했을 때
+    wss.on('connection', (ws, req) => {
+        //클라이언트의 IP를 가져오기
+        //클라이언트의 요청 객체 안에 x-forwarded-for 
+        //라는 속성을 가지고 자신의 IP를 전송합니다.
+        const ip = req.headers['x-forwarded-for'] || 
+            req.connection.remoteAddress;
+        console.log('새로운 클라이언트 접속 - ' , ip);
+
+        //클라이언트가 메시지를 전송했을 때 
+        ws.on('message', (message) => {
+            console.log("클라이언트의 메시지:", message);
+        });
+
+        //에러가 발생했을 때
+        ws.on('error', (error) => {
+            console.error(error);
+        });
+
+        //에러가 발생했을 때
+        ws.on('close', () => {
+            console.log('클라이언트 접속 해제:', ip);
+            //타이머 중지
+            clearInterval(ws.interval);
+        });
+
+        //타이머 생성
+        //3초마다 클라이언트에게 메시지를 전송하는 타이머
+        ws.interval = setInterval(() => {
+            if(ws.readyState === ws.OPEN){
+                ws.send('서버에서 클라이언트에게 메시지 전송');
+            }
+        }, 3000);
+    })
+
+}
+
+4).env 파일을 만들고 작성
+COOKIE_SECRET=websoket
+
+5)App.js 파일을 수정
+/*
+var WebSocketServer = require('websocket').server;
+var http = require('http');
+var fs = require('fs');
+
+var server = http.createServer(function(req, res){
+    if(req.url === "/"){
+        res.writeHead(200, {'Content-Type': 'text/html'});
+        res.end('WebSocket')
+    }else if(req.url === '/index'){
+        fs.readFile('index.html', function(error, data){
+            res.writeHead(200, {'Content-Type': 'text/html'});
+            res.end(data);
+        })
+    }
+})
+
+server.listen(10001, function(){
+    console.log('server is listening on port 10001');
+});
+
+//웹 소켓 서버 생성
+var wsServer = new WebSocketServer({
+    httpServer:server,
+    autoAcceptConnections:false
+});
+
+//이벤트 처리
+var x = 0;
+wsServer.on('request', function(request){
+    //클라이언트 와 연결
+    var connection = request.accept(
+        'example-echo', request.origin);
+    x = x + 1;
+    console.log("현재 " + x + "명 접속 중")
+    //클라이언트가 메시지를 전송하면
+    connection.on('message', function(message){
+        if(message.type === 'utf8'){
+            //받은 메시지를 출력
+            console.log('받은 메시지:' + message.utf8Data);
+            //받은 메시지를 다시 전송
+            connection.sendUTF(message.utf8Data);
+        }else if(message.type === 'binary'){
+            connection.sendBytes(message.binaryData);
+        }
+    });
+    connection.on('close', 
+        function(reasonCode, description){
+            console.log('Peer:' + 
+                connection.remoteAddress + 'disconnected');
+    });
+
+})
+*/
+
+//ws 모듈을 이용한 웹 소켓
+const express = require('express');
+const path = require('path');
+const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const nunjucks = require('nunjucks');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+//socket.js 에서 내보낸 내용을 저장
+const webSocket = require('./socket');
+
+const indexRouter = require('./routes');
+
+const app = express();
+app.set('port', process.env.PORT || 8001);
+app.set('view engine', 'html');
+nunjucks.configure('views', {
+  express: app,
+  watch: true,
+});
+
+app.use(morgan('dev'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser(process.env.COOKIE_SECRET));
+
+app.use(session({
+  resave: false,
+  saveUninitialized: false,
+  secret: process.env.COOKIE_SECRET,
+  cookie: {
+    httpOnly: true,
+    secure: false,
+  },
+}));
+
+app.use('/', indexRouter);
+
+app.use((req, res, next) => {
+  const error =  new Error(`${req.method} ${req.url} 라우터가 없습니다.`);
+  error.status = 404;
+  next(error);
+});
+
+app.use((err, req, res, next) => {
+  res.locals.message = err.message;
+  res.locals.error = process.env.NODE_ENV !== 'production' ? err : {};
+  res.status(err.status || 500);
+  res.render('error');
+});
+
+const server = app.listen(app.get('port'), () => {
+  console.log(app.get('port'), '번 포트에서 대기중');
+});
+
+//웹 소켓 서버 실행
+webSocket(server);
+
+
+6)기본 요청이 온 경우 데이터를 출력하기 위한 내용을 views 디렉토리에 websocket.html 로 생성
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>웹 소켓</title>
+</head>
+<body>
+<div>F12를 눌러 console 탭과 network 탭을 확인하세요.</div>
+<script>
+  const webSocket = new WebSocket("ws://localhost:8001");
+  //웹 소켓 서버 와 연결할 때 
+  webSocket.addEventListener('open', (e) =>{
+    console.log('서버와 웹소켓 연결 성공!');
+  });
+
+  //웹 소켓 서버에서 메시지를 보냈을 때
+  webSocket.onmessage = function (event) {
+    console.log(event.data);
+    //웹 서버에게 메시지 전송
+    webSocket.send('클라이언트에서 서버로 답장을 보냅니다');
+  };
+</script>
+</body>
+</html>
+
+
+7)views 디렉토리에 에러가 발생했을 때 보여질 error.html 파일을 만들고 작성
+<h1>{{message}}</h1>
+<h2>{{error.status}}</h2>
+<pre>{{error.stack}}</pre>
+
+
+8)package.json 의 script 수정
+  "scripts": {
+    "start":"nodemon app",
+    "test": "jest"
+  },
+
+
+5.Socket.IO 패키지를 데이터 전송
+=>express 서버 와 연결 가능한 WebSocket 모듈
+1)socket.io 패키지 설치
+=>npm install socket.io
+
+2)socket.js 파일을 수정
+//socket.io 패키지를 이용한 WebSocket
+
+const SocketIO = require('socket.io');
+
+module.exports = (server) => {
+    //웹 소켓 객체 생성
+    const io = SocketIO(server, {path:'/socket.io'});
+
+    //클라이언트 접속 이벤트 처리
+    //socket 이 클라이언트 와의 통신에 이용할 소켓
+    io.on('connection', (socket) => {
+        //클라이언트의 요청 정보 가져오기
+        const req = socket.request;
+        console.log("클라이언트 접속 - ", 
+            socket.id, req.ip);
+
+        //클라이언트로 부터 메시지가 전송된 경우
+        socket.on('reply', (data) => {
+            console.log(data);
+        });
+
+        //에러가 발생했을 때
+        socket.on('error', (error) => {
+            console.error(error);
+        })
+
+        //타이머 - 3초마다 메시지를 클라이언트에게 전송
+        socket.interval = setInterval(()=>{
+            //news 라는 이벤트를 발생시켜서
+            //안녕하세요 반갑습니다. 라는 메시지를 전송
+            socket.emit('news', '안녕하세요 반갑습니다.');
+        }, 3000);
+
+        //연결이 해제될 때 
+        socket.on('disconnect', ()=>{
+            console.log('클라이언트 접속 해제');
+            clearInterval(socket.interval);
+        })
+    })
+}
+
+3)websocket.html 파일을 수정
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>웹 소켓 - Socket.IO 모듈</title>
+</head>
+<body>
+<div>F12를 눌러 console 탭과 network 탭을 확인하세요.</div>
+<script src="socket.io/socket.io.js"></script>
+<script>
+  //웹 소켓 연결
+  const webSocket = io.connect('http://localhost:8001',
+  {path:'/socket.io', transports:['websocket']});
+
+  //news 라는 이벤트 처리
+  webSocket.on('news', function(data){
+    console.log(data);
+    webSocket.emit('reply', 'Hello Node Websocket')
+  })
+</script>
+</body>
+</html>
+
+4)실행 후 확인
+
+6.Socket.IO 와 jqeury mobile을 이용한 채팅
+1)채팅의 원리
+=>클라이언트들이 접속할 때 소켓들을 배열에 저장
+클라이언트에게서 메시지가 오면 배열에 저장된 모든 소켓에게 메시지를 전송
+
+=>Socket.IO를 사용하는 경우에는 SocketIO로 생성한 객체의 sockets 속성을 이용하면 모든 클라이언트들에게 이벤트를 발생시킬 수 있습니다.
+
+2)socket.js 파일에 이벤트 처리 코드 추가
+        //message 이벤트가 오면 
+        //접속한 모든 클라이언트에게 message 이벤트를
+        //발생시키는데 이 때 전송된 데이터를 전송
+        socket.on('message', function(data){
+            io.sockets.emit('message', data);
+        })
+
+3)websocket.html 파일을 수정
+<!--
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>웹 소켓 - ws 모듈</title>
+</head>
+<body>
+<div>F12를 눌러 console 탭과 network 탭을 확인하세요.</div>
+<script>
+  const webSocket = new WebSocket("ws://localhost:8001");
+  //웹 소켓 서버 와 연결할 때 
+  webSocket.addEventListener('open', (e) =>{
+    console.log('서버와 웹소켓 연결 성공!');
+  });
+
+  //웹 소켓 서버에서 메시지를 보냈을 때
+  webSocket.onmessage = function (event) {
+    console.log(event.data);
+    //웹 서버에게 메시지 전송
+    webSocket.send('클라이언트에서 서버로 답장을 보냅니다');
+  };
+</script>
+</body>
+</html>
+-->
+
+<!--
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>웹 소켓 - Socket.IO 모듈</title>
+</head>
+<body>
+<div>F12를 눌러 console 탭과 network 탭을 확인하세요.</div>
+<script src="socket.io/socket.io.js"></script>
+<script>
+  //웹 소켓 연결
+  const webSocket = io.connect('http://localhost:8001',
+  {path:'/socket.io', transports:['websocket']});
+
+  //news 라는 이벤트 처리
+  webSocket.on('news', function(data){
+    console.log(data);
+    webSocket.emit('reply', 'Hello Node Websocket')
+  })
+</script>
+</body>
+</html>
+-->
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chatting</title>
+        <meta charset="UTF-8" />
+        <!--모바일 페이지 옵션-->
+        <meta name="viewport" content=
+            "width=device-width, initial-scale=1"/>
+
+        <!-- jquery mobile-->
+        <link rel="stylesheet" href="http://code.jquery.com/mobile/1.2.0/jquery.mobile-1.2.0.min.css" />
+        <script src="http://code.jquery.com/jquery-1.8.2.min.js"></script>
+        <script src="http://code.jquery.com/mobile/1.2.0/jquery.mobile-1.2.0.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            //문서가 모두 준비되면 - window.onload 보다 먼저 수행
+            $(document).ready(function(){
+                var socket = io.connect('http://localhost:8001');
+                //이벤트 연결
+                socket.on('message', function(data){
+                    var output = '';
+                    output += '<li>';
+                    output += '<h3>' + data.name + '</h3>';
+                    output += '<p>' + data.message + '</p>';
+                    output += '<p>' + data.date + '</p>';
+                    output += '</li>';
+
+                    //문서 객체를 추가
+                    //content 라는 id를 가진 영역에 추가
+                    $(output).prependTo('#content');
+                    //content 영역을 재출력
+                    $('#content').listview('refresh');
+
+                });
+
+                //버튼을 클릭할 때 메시지를 서버에 전송
+                $('button').click(function(){
+                    socket.emit('message', {
+                        name:$('#name').val(), 
+                        message:$('#message').val(),
+                        date:new Date().toUTCString()
+                    });
+                    $('#message').val('');
+                });
+            });
+        </script>
+    </head>
+    <body>
+        <!--처음에 보여질 닉네임 입력 페이지-->
+        <div data-role="page">
+            <div data-role="header">
+                <h1>Socket.IO Chatting</h1>
+            </div>
+            <div data-role="content">
+                <h3>별명 입력</h3>
+                <input id="name" required="required"/>
+                <a data-role="button" href="#chatpage">
+                    채팅 시작
+                </a>
+            </div>
+        </div>
+
+        <!-- 채팅 내용이 보여질 페이지-->
+        <div data-role="page" id="chatpage">
+            <div data-role="header">
+                <h1>Socket.IO Chatting</h1>
+            </div>
+            <div data-role="content">
+                <input id="message"/>
+                <button>전송</button>
+                <ul id="content" data-role="listview"
+                data-inset="true"></ul>
+            </div>
+        </div>
+    </body>
+</html>
+
+7.WebSocket 을 이용한 화면 공유
+1)public 디렉토리 생성
+
+2)websocket.html 파일을 수정
+<!--
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>웹 소켓 - ws 모듈</title>
+</head>
+<body>
+<div>F12를 눌러 console 탭과 network 탭을 확인하세요.</div>
+<script>
+  const webSocket = new WebSocket("ws://localhost:8001");
+  //웹 소켓 서버 와 연결할 때 
+  webSocket.addEventListener('open', (e) =>{
+    console.log('서버와 웹소켓 연결 성공!');
+  });
+
+  //웹 소켓 서버에서 메시지를 보냈을 때
+  webSocket.onmessage = function (event) {
+    console.log(event.data);
+    //웹 서버에게 메시지 전송
+    webSocket.send('클라이언트에서 서버로 답장을 보냅니다');
+  };
+</script>
+</body>
+</html>
+-->
+
+<!--
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>웹 소켓 - Socket.IO 모듈</title>
+</head>
+<body>
+<div>F12를 눌러 console 탭과 network 탭을 확인하세요.</div>
+<script src="socket.io/socket.io.js"></script>
+<script>
+  //웹 소켓 연결
+  const webSocket = io.connect('http://localhost:8001',
+  {path:'/socket.io', transports:['websocket']});
+
+  //news 라는 이벤트 처리
+  webSocket.on('news', function(data){
+    console.log(data);
+    webSocket.emit('reply', 'Hello Node Websocket')
+  })
+</script>
+</body>
+</html>
+-->
+
+
+<!-- 채팅 -->
+<!--
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chatting</title>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content=
+            "width=device-width, initial-scale=1"/>
+
+        <link rel="stylesheet" href="http://code.jquery.com/mobile/1.2.0/jquery.mobile-1.2.0.min.css" />
+        <script src="http://code.jquery.com/jquery-1.8.2.min.js"></script>
+        <script src="http://code.jquery.com/mobile/1.2.0/jquery.mobile-1.2.0.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            //문서가 모두 준비되면 - window.onload 보다 먼저 수행
+            $(document).ready(function(){
+                var socket = io.connect('http://localhost:8001');
+                //이벤트 연결
+                socket.on('message', function(data){
+                    var output = '';
+                    output += '<li>';
+                    output += '<h3>' + data.name + '</h3>';
+                    output += '<p>' + data.message + '</p>';
+                    output += '<p>' + data.date + '</p>';
+                    output += '</li>';
+
+                    //문서 객체를 추가
+                    //content 라는 id를 가진 영역에 추가
+                    $(output).prependTo('#content');
+                    //content 영역을 재출력
+                    $('#content').listview('refresh');
+
+                });
+
+                //버튼을 클릭할 때 메시지를 서버에 전송
+                $('button').click(function(){
+                    socket.emit('message', {
+                        name:$('#name').val(), 
+                        message:$('#message').val(),
+                        date:new Date().toUTCString()
+                    });
+                    $('#message').val('');
+                });
+            });
+        </script>
+    </head>
+    <body>
+        <div data-role="page">
+            <div data-role="header">
+                <h1>Socket.IO Chatting</h1>
+            </div>
+            <div data-role="content">
+                <h3>별명 입력</h3>
+                <input id="name" required="required"/>
+                <a data-role="button" href="#chatpage">
+                    채팅 시작
+                </a>
+            </div>
+        </div>
+
+        <div data-role="page" id="chatpage">
+            <div data-role="header">
+                <h1>Socket.IO Chatting</h1>
+            </div>
+            <div data-role="content">
+                <input id="message"/>
+                <button>전송</button>
+                <ul id="content" data-role="listview"
+                data-inset="true"></ul>
+            </div>
+        </div>
+    </body>
+</html>
+-->
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>웹 소켓을 이용한 화면 공유</title>
+        <meta charset="UTF-8" />
+        <script src="http://code.jquery.com/jquery-1.8.2.min.js"></script>
+        <script src="js/board.js"></script>
+        <link rel="stylesheet" type="text/css"
+        href="stylesheet/style.css">
+    </head>
+    <body>
+        <canvas id="cv" width="860px;" height="645px;"></canvas>
+    </body>
+</html>
+
+3)public 디렉토리에 images 디렉토리를 생성하고 blackboard.jpg 파일을 추가
+
+4)public 디렉토리에 js 디렉토리를 생성하고 board.js 파일을 추가
+
+5)public 디렉토리에 stylesheet 디렉토리를 생성하고 style.css 파일을 추가하고 작성
+body{
+    margin:0px;
+}
+
+#cv{
+    width:860px;
+    height:645px;
+    background-image:url('../images/blackboard.jpg');
+}
+
+6)캔버스에 그림 그리기 연습 - board.js 파일에 작성
+$(function(){
+    //캔버스에서 그림을 그리기 위해서 그리기 정보를 가진
+    //객체를 가져옵니다.
+    var ctx = $('#cv').get(0).getContext('2d');
+    ctx.strokeStyle='white';
+    ctx.lineWidth=5;
+
+    //그리기 모드를 위한 변수
+    var drawing = false;
+
+    $('#cv').bind('mousedown', function(e){
+        drawing=true;
+        ctx.moveTo(e.pageX, e.pageY);
+    });
+
+    $('#cv').bind('mousemove', function(e){
+        if(drawing){
+            ctx.lineTo(e.pageX, e.pageY);
+            ctx.stroke();
+        }
+    });
+
+    $('#cv').bind('mouseup', function(e){
+        drawing=false;
+    })
+})
+
+7)board.js 파일에 캔버스 초기화 코드를 작성
+var ctx;
+
+//jquery에서 HTML 태그를 메모리로 로드 한 후 호출
+//window.onload 보다 먼저 동작
+$(function(){
+    //캔버스에서 그림을 그리기 위해서 그리기 정보를 가진
+    //객체를 가져옵니다.
+    ctx = $('#cv').get(0).getContext('2d');
+    
+    //아이디가 cv 인 객체의 mousedown 이벤트가 발생하면
+    //draw 객체의 start 함수가 호출됩니다.
+    $('#cv').bind('mousedown', draw.start);
+    //document.getElementById('cv')
+    //.addEventListener('mousedown', draw.start);
+
+    $('#cv').bind('mousemove', draw.move);
+    $('#cv').bind('mouseup', draw.end);
+
+    //기본 모양 설정
+    shape.setShape();
+});
+
+//그리는 옵션 과 관련된 객체
+var shape = {
+    color:'white',
+    width:3,
+    setShape: function(color, width){
+        if(color != null){
+            this.color = color;
+        }
+        if(width != null){
+            this.width = width;
+        }
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = this.width;
+    }
+}
+
+//그림을 그려주는 함수를 가진 객체
+var draw = {
+    drawing:null,
+    start: function(e){
+        ctx.beginPath();
+        ctx.moveTo(e.pageX, e.pageY);
+        this.drawing = true;
+    },
+    move:function(e){
+        if(this.drawing){
+            ctx.lineTo(e.pageX, e.pageY);
+            ctx.stroke();
+        }
+    },
+    end:function(e){
+        this.drawing = false;
+    }
+}
+
+8)실행 후 마우스 드래그로 선이 그려지는지 확인
+
+9)버튼을 하나 배치해서 삭제를 구현
+=>websocket.html 파일에 버튼을 배치
+        <div class="menu">
+            <button id="clear">삭제</button>
+        </div>
+
+=>style.css 파일에 추가한 DOM(Document Object Model) 의 스타일을 설정
+body{
+    margin:0px;
+}
+
+#cv{
+    width:860px;
+    height:645px;
+    background-image:url('../images/blackboard.jpg');
+    float:left;
+}
+
+.menu{
+    float:left;
+}
+
+button{
+    width:100px;
+    height:50px;
+}
+
+=>board.js 파일에 버튼을 눌렀을 때 수행할 내용을 작성
+ - draw 객체에 clear 함수를 생성
+    clear:function(e){
+        ctx.clearRect(0, 0, 860, 645);
+    }
+
+ - document.ready에서 버튼 과 clear 함수를 연결
+   $('#clear').bind('click', draw.clear);
+
+10)색상 변경 과 펜 두께 변경
+=>websocket.html 파일에 색상 과 펜 두께를 변경할 수 있는 UI를 추가
+            <fieldset>
+                <legend>색상 변경</legend>
+                <select id="pen_color"></select>
+            </fieldset>
+            <fieldset>
+                <legend>선 두께</legend>
+                <select id="pen_width"></select>
+            </fieldset>
+
+
+=>board.js 파일에 색상 과 선 두께 이벤트 처리를 위한 코드를 추가
+ - document.ready 함수에 초기화 작업 관련 코드를 추가
+     var color_map = [
+        {'value':'white', 'name':'흰색'},
+        {'value':'red', 'name':'빨간색'},
+        {'value':'orange', 'name':'오렌지색'},
+        {'value':'yellow', 'name':'노란색'},
+        {'value':'blue', 'name':'파란색'},
+        {'value':'papayawhip', 'name':'베이지색'},
+        {'value':'black', 'name':'검정색'},
+    ]
+
+    for(var key in color_map){
+        $('#pen_color').append('<option value=' + 
+            color_map[key].value + '>' + 
+            color_map[key].name) + '</option>'
+    }
+
+    for(var i=1; i<15; i=i+1){
+        $('#pen_width').append('<option value=' + i + 
+        '>' + i + '</option>');
+    } 
+
+ - shape 객체에 2개의 select 값이 변경되었을 때 호출될 함수를 작성
+   change:function(e){
+        var color = $('#pen_color option:selected').val();
+        var width = $('#pen_width option:selected').val();
+        shape.setShape(color, width);
+    },
+
+ - document.ready 함수에서 select 와 change 함수를 연결
+  $('select').bind('change', shape.change);
+
+11)websocket을 이용한 데이터 교환
+=>App.js 파일에서 소켓 서버 설정 코드 추가
+//웹 소켓 서버 설정
+const io = require('socket.io')(server);
+
+=>websocket.html 파일에 socket.io.js 파일을 사용하도록 설정
+  <script src="/socket.io/socket.io.js"></script>
+
+=>board.js 파일에 작업
+ - 웹 소켓을 위한 변수 작성
+   //웹 소켓을 위한 변수
+   var socket;
+
+ - document.ready 함수 안에 socket 인스턴스를 생성
+  //소켓 인스턴스 생성
+  socket = io.connect(window.location.href);
+
+ - board.js 파일에 전송할 데이터의 역할을 수행할 msg 객체를 생성
+//소켓을 이용해서 전송할 내용
+var msg = {
+    line:{
+        send:function(type, x, y){
+            console.log(type, x, y);
+            //linesend 라는 이벤트를 발생시키고 데이터를 전달
+            socket.emit('linesend', {
+                'type':type,
+                'x':x,
+                'y':y,
+                'color':shape.color,
+                'width':shape.width
+            })
+        }
+    }
+}
+
+ - board.js 파일의 draw 객체 수정: 그림을 그릴 때 소켓을 이용해서 이벤트를 발생
+//그림을 그려주는 함수를 가진 객체
+var draw = {
+    drawing:null,
+    start: function(e){
+        ctx.beginPath();
+        ctx.moveTo(e.pageX, e.pageY);
+        this.drawing = true;
+        msg.line.send('start', e.pageX, e.pageY);
+    },
+    move:function(e){
+        if(this.drawing){
+            ctx.lineTo(e.pageX, e.pageY);
+            ctx.stroke();
+            msg.line.send('move', e.pageX, e.pageY);
+        }
+    },
+    end:function(e){
+        this.drawing = false;
+        msg.line.send('end');
+    },
+    clear:function(e){
+        ctx.clearRect(0, 0, 860, 645);
+        msg.line.send('clear');
+    }
+}
+
+ - socket.js 파일에 linesend 이벤트를 받았을 때 처리를 위한 코드를 작성
+  //소켓에 linesend 이벤트가 발생했을 떼 처리
+        socket.on('linesend', function(data){
+            //넘어온 데이터 출력
+            console.log(data);
+            //모든 클라이언트들에게 이벤트를 발생
+            socket.broadcast.emit('linesend_toclient', data);
+        });
+
+ - borad.js 파일의 document.ready 함수 안에 linesend_toclient 이벤트가 발생했을 때 처리하는 코드를 작성
+    //소켓에서 linesend_toclient 이벤트가 발생한 경우 수행
+    socket.on('linesend_toclient', function(data){
+        draw.drawfromServer(data);
+    })
+
+ - board.js 파일의 draw 객체 안에 drawfromServer 함수를 작성
+     drawfromServer:function(data){
+        if(data.type === 'start'){
+            ctx.beginPath();
+            ctx.moveTo(data.x, data.y);
+            ctx.strokeStyle = data.color;
+            ctx.lineWidth = data.width;
+        }
+        if(data.type === 'move'){
+            ctx.lineTo(data.x, data.y);
+            ctx.stroke();
+        }
+        if(data.type === 'clear'){
+            ctx.clearRect(0,0, cv.width, cv.height);
+            shape.setShape();
+        }
+    }
+
+7.Java 와 Node 의 UDP(Datagram) 통신
+1)UDP 방식으로 데이터를 받는 Java 클래스를 생성해서 실행
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+
+public class UDPServer {
+
+	public static void main(String[] args) {
+		try(DatagramSocket ds = new DatagramSocket(4445)){
+			//데이터를 저장하기 위한 배열 생성
+			byte [] data = new byte[65536];
+			//UDP 통신에서 데이터를 전송받을 패킷 생성
+			DatagramPacket dp = 
+					new DatagramPacket(
+							data, data.length);
+			while(true) {
+				System.out.println("서버 대기 중...");
+				//데이터가 올 때 까지 대기
+				ds.receive(dp);
+				//보낸 곳 확인
+				System.out.println(
+					dp.getAddress().getHostAddress());
+				//보낸 데이터 확인
+				String utf8String = 
+					new String(new String(
+							dp.getData()).trim()
+							.getBytes("UTF-8"));
+				System.out.println(utf8String);
+				
+				//받은 곳의 URL을 확인해서 메시지 전송
+				String msg = "Server Message";
+				InetAddress address = 
+						dp.getAddress();
+				int port = dp.getPort();
+				dp = new DatagramPacket(
+					msg.getBytes(),msg.getBytes().length,
+					address, port);
+				ds.send(dp);
+			}
+		}catch(Exception e) {
+			
+		}
+
+	}
+
+}
+
+2)UDP로 전송하고 전송받기 위한 node 파일을 생성
+//브라우저에서 실행하기 위해서 추출
+var http = require('http');
+
+//UDP 통신을 위한 모듈을 추출
+var client = require('dgram').createSocket('udp4');
+
+//전송할 메시지 생성
+var message = "Hello Java";
+
+//데이터 받았을 때 처리
+client.on("message", function(msg, info){
+    message = msg;
+    console.log(message);
+});
+
+//에러가 발생한 경우 수행
+client.on("error", function(err){
+    console.log("에러:" + err);
+})
+
+http.createServer(function(req, res){
+    if(req.url === './favicon.ico'){
+        res.writeHead(200, {
+            'Content-Type': 'image/x-icon'
+        })
+        res.end();
+        return;
+    }
+    //데이터 전송
+    var data = Buffer.from("안녕하세요 반갑습니다.!!");
+
+    client.send(data, 0, data.length, 4445, 'localhost');   
+
+    res.writeHead(200, {
+        'Content-Type': 'text/plain'
+    });
+    res.end('Hi');
+}).listen(1338, '127.0.0.1');
+
+3)java application 을 실행시키고 node 파일도 실행한 후 브라우저에서 localhost:1338 로 접속한 후 자바 콘솔을 확인해서 send 한 데이터가 전송되는지 확인
+=>실제 주고 받는 애플리케이션을 만들기 위해서는 스레드를 이용해야 합니다.
+
+
+
+
+
+
+

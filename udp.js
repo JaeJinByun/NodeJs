@@ -5,7 +5,7 @@ var http = require('http');
 var client = require('dgram').createSocket('udp4');
 
 //전송할 메시지 생성 
-var message = "안녕하세요. 반갑습니다.";
+var message = "Hello World";
 
 var data = new Buffer(message);
 client.send(data,0,data.length,4445,'localhost');
@@ -28,8 +28,14 @@ http.createServer((function(req,res){
         res.end();
         return;
     }
-
+    
     //데이터 전송
-    var data = new Buffer(message);
+    var data = new Buffer.from("안녕하세요. 반갑습니다.");
     client.send(data,0,data.length,4445,'localhost');
-}))
+
+    res.writeHead(200, {
+        'Content-Type' : 'text/plane'
+    });
+    res.end('Hi');
+})).listen(1338,'127.0.0.1');
+
